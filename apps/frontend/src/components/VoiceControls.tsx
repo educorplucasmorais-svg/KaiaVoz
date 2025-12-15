@@ -12,7 +12,7 @@ export default function VoiceControls({ listening, transcript, onStart, onStop }
         onClick={listening ? onStop : onStart}
         className={`px-6 py-3 rounded-full text-white font-semibold shadow-lg ${listening ? 'bg-red-600' : 'bg-blue-600'}`}
       >
-        {listening ? 'Parar' : 'Falar com a Caia'}
+        {listening ? 'Parar' : 'Começar'}
       </button>
       <div className="text-white/90 text-center max-w-2xl min-h-[2rem]">
         {transcript}
