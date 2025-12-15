@@ -13,7 +13,7 @@ export default function App() {
   const [mode, setMode] = useState<KaiaMode>('assistente')
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null)
   const [showSettings, setShowSettings] = useState(false)
-  const { listening, transcript, start, stop, speak: speakBrowser, supported } = useSpeech()
+  const { listening, transcript, start, stop, speak: speakBrowser, supported, permissionStatus, requestPermission } = useSpeech()
   const { settings: voiceSettings, setSettings: setVoiceSettings, speak } = useTTS()
   const [cmdLines, setCmdLines] = useState<string[]>([])
   const wsRef = useRef<WebSocket | null>(null)
@@ -119,13 +119,45 @@ export default function App() {
       </header>
 
       <section className="flex flex-col items-center gap-6 w-full flex-1 justify-center">
-        <div className={`w-44 h-44 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center transition-all duration-300 ${listening ? 'animate-pulse scale-110 border-blue-400' : 'animate-wave'}`}>
-          <div className={`w-28 h-8 rounded-full bg-gradient-to-r from-sky-300 to-blue-600 transition-all duration-300 ${listening ? 'scale-110' : ''}`} />
+        {/* Kaia Avatar with Wave Effects and Silhouette */}
+        <div className="relative">
+          {/* Outer wave rings */}
+          <div className={`absolute inset-0 rounded-full transition-all duration-1000 ${listening ? 'animate-ping opacity-20' : 'opacity-0'}`} style={{ background: 'radial-gradient(circle, rgba(56,189,248,0.3) 0%, transparent 70%)', transform: 'scale(2)' }} />
+          <div className={`absolute inset-0 rounded-full transition-all duration-700 ${listening ? 'animate-pulse opacity-30' : 'opacity-0'}`} style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.4) 0%, transparent 70%)', transform: 'scale(1.5)' }} />
+          
+          {/* Main avatar container */}
+          <div className={`relative w-48 h-48 rounded-full bg-gradient-to-b from-white/20 to-white/5 backdrop-blur-md border-2 transition-all duration-300 flex items-center justify-center ${listening ? 'border-blue-400 shadow-lg shadow-blue-500/30' : 'border-white/20'}`}>
+            {/* Kaia Silhouette */}
+            <div className="relative flex flex-col items-center">
+              {/* Head */}
+              <div className={`w-16 h-16 rounded-full bg-gradient-to-b from-sky-300 to-blue-500 transition-all duration-300 ${listening ? 'scale-105' : ''}`} />
+              {/* Body/shoulders silhouette */}
+              <div className={`w-24 h-10 -mt-2 rounded-t-full bg-gradient-to-b from-blue-500 to-blue-700 transition-all duration-300 ${listening ? 'scale-105' : ''}`} />
+            </div>
+            
+            {/* Sound wave bars (visible when listening) */}
+            {listening && (
+              <div className="absolute bottom-6 flex items-end gap-1">
+                <div className="w-1 bg-blue-300 rounded-full animate-wave-1" style={{ height: '12px' }} />
+                <div className="w-1 bg-blue-400 rounded-full animate-wave-2" style={{ height: '20px' }} />
+                <div className="w-1 bg-blue-300 rounded-full animate-wave-3" style={{ height: '16px' }} />
+                <div className="w-1 bg-blue-400 rounded-full animate-wave-2" style={{ height: '24px' }} />
+                <div className="w-1 bg-blue-300 rounded-full animate-wave-1" style={{ height: '14px' }} />
+              </div>
+            )}
+          </div>
         </div>
+
         {!supported && (
           <div className="text-yellow-200">Seu navegador pode não suportar STT/TTS (Web Speech API).</div>
         )}
-        <VoiceControls listening={listening} transcript={transcript} onStart={start} onStop={stop} />
+        
+        <VoiceControls 
+          listening={listening} 
+          transcript={transcript} 
+          permissionStatus={permissionStatus}
+          onRequestPermission={requestPermission}
+        />
         
         {mode === 'codigo' && <CommandOutput lines={cmdLines} />}
         

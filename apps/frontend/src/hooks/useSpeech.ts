@@ -4,7 +4,35 @@ export function useSpeech() {
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'checking' | 'unavailable'>('checking')
   const recRef = useRef<any | null>(null)
+  const hasAutoStarted = useRef(false)
+
+  // Helper function to request microphone permission
+  const requestMicPermission = useCallback(async (): Promise<'granted' | 'denied' | 'unavailable'> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop())
+      return 'granted'
+    } catch (err) {
+      const errorName = (err as any).name
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        return 'denied'
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        return 'unavailable'
+      }
+      return 'denied'
+    }
+  }, [])
+
+  // Request microphone permission on mount
+  useEffect(() => {
+    const checkPermission = async () => {
+      const status = await requestMicPermission()
+      setPermissionStatus(status)
+    }
+    checkPermission()
+  }, [requestMicPermission])
 
   useEffect(() => {
     if (!SpeechRecognition) return
@@ -28,6 +56,16 @@ export function useSpeech() {
     recRef.current = rec
   }, [SpeechRecognition])
 
+  // Auto-start listening when permission is granted (only once)
+  useEffect(() => {
+    if (permissionStatus === 'granted' && recRef.current && !hasAutoStarted.current) {
+      hasAutoStarted.current = true
+      setTranscript('')
+      setListening(true)
+      recRef.current.start()
+    }
+  }, [permissionStatus])
+
   const start = useCallback(() => {
     if (recRef.current && !listening) {
       setTranscript('')
@@ -48,5 +86,10 @@ export function useSpeech() {
     window.speechSynthesis.speak(utter)
   }, [])
 
-  return { listening, transcript, start, stop, speak, supported: Boolean(SpeechRecognition) }
+  const requestPermission = useCallback(async () => {
+    const status = await requestMicPermission()
+    setPermissionStatus(status)
+  }, [requestMicPermission])
+
+  return { listening, transcript, start, stop, speak, supported: Boolean(SpeechRecognition), permissionStatus, requestPermission }
 }
