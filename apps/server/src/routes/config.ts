@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import type { ServerConfig } from '@caia/shared'
+import type { ServerConfig } from '@kaia/shared'
 
 export const configRouter = Router()
 

@@ -1,5 +1,5 @@
 {
-  "name": "@caia/agent-win",
+  "name": "@kaia/agent-win",
   "version": "0.1.0",
   "private": true,
   "type": "module",

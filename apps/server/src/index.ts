@@ -20,5 +20,5 @@ app.use('/api/config', configRouter)
 
 const port = Number(process.env.PORT || 3060)
 app.listen(port, () => {
-  console.log(`Caia server listening on http://localhost:${port}`)
+  console.log(`Kaia server listening on http://localhost:${port}`)
 })

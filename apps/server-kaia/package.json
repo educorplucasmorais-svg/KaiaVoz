@@ -13,7 +13,7 @@
     "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
-    "@caia/shared": "*",
+    "@kaia/shared": "*",
     "@prisma/client": "^5.20.0",
     "chrono-node": "^2.7.6",
     "cors": "^2.8.5",

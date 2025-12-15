@@ -13,7 +13,7 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@caia/shared": ["../../packages/shared/src/index.ts"]
+      "@kaia/shared": ["../../packages/shared/src/index.ts"]
     }
   },
   "include": ["src"]

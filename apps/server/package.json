@@ -1,5 +1,5 @@
 {
-  "name": "@caia/server",
+  "name": "@kaia/server-legacy",
   "version": "0.1.0",
   "private": true,
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "prisma:deploy": "prisma migrate deploy"
   },
   "dependencies": {
-    "@caia/shared": "*",
+    "@kaia/shared": "*",
     "chrono-node": "^2.7.6",
     "cors": "^2.8.5",
     "express": "^4.21.1",

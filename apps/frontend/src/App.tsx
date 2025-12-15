@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import ModeSwitch from './components/ModeSwitch'
 import VoiceControls from './components/VoiceControls'
 import CommandOutput from './components/CommandOutput'
-import type { CaiaMode, ExecuteCommandEvent, ExecuteCommandRequest, ServerConfig, ApiResponse } from '@caia/shared'
+import type { KaiaMode, ExecuteCommandEvent, ExecuteCommandRequest, ServerConfig, ApiResponse } from '@kaia/shared'
 import { useSpeech } from './hooks/useSpeech'
 import { useTTS } from './hooks/useTTS'
 import { createReminder } from './lib/api'
@@ -10,7 +10,7 @@ import RemindersPanel from './components/RemindersPanel'
 import VoiceSettingsPanel from './components/VoiceSettings'
 
 export default function App() {
-  const [mode, setMode] = useState<CaiaMode>('assistente')
+  const [mode, setMode] = useState<KaiaMode>('assistente')
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null)
   const { listening, transcript, start, stop, speak: speakBrowser, supported } = useSpeech()
   const { settings: voiceSettings, setSettings: setVoiceSettings, speak } = useTTS()
@@ -96,7 +96,7 @@ export default function App() {
   return (
     <div className="ocean-waves min-h-screen text-white flex flex-col items-center py-10 px-4">
       <header className="w-full max-w-5xl flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-wide">Caia</h1>
+        <h1 className="text-2xl font-bold tracking-wide">Kaia</h1>
         <div className="flex items-center gap-3">
           {serverConfig?.features.gpt52PreviewAllClients && (
             <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-200 border border-green-400/40">

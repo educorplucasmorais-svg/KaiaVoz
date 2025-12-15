@@ -1,5 +1,5 @@
 {
-  "name": "@caia/frontend",
+  "name": "@kaia/frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@caia/shared": "*",
+    "@kaia/shared": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

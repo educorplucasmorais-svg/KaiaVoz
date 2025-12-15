@@ -1,4 +1,4 @@
-export type CaiaMode = 'codigo' | 'assistente';
+export type KaiaMode = 'codigo' | 'assistente';
 
 export interface ChatMessage {
   id: string;

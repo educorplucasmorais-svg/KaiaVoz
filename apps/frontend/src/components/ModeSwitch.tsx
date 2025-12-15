@@ -1,8 +1,8 @@
-import type { CaiaMode } from '@caia/shared'
+import type { KaiaMode } from '@kaia/shared'
 
 interface Props {
-  mode: CaiaMode
-  onChange: (m: CaiaMode) => void
+  mode: KaiaMode
+  onChange: (m: KaiaMode) => void
 }
 
 export default function ModeSwitch({ mode, onChange }: Props) {

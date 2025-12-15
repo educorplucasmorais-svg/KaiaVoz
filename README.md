@@ -1,6 +1,6 @@
-# Caia Monorepo
+# Kaia Monorepo
 
-Caia é um assistente virtual com dois modos: "Kaia - Código" e "Kaia - Assistente". Este monorepo contém:
+Kaia é um assistente virtual com dois modos: "Kaia - Código" e "Kaia - Assistente". Este monorepo contém:
 
 - `apps/frontend`: Web app (React + Vite + TypeScript + Tailwind) para UI, voz (STT/TTS) e controle de modos.
 - `apps/server`: API (Node + Express + TypeScript + Prisma) para reminders, agenda e logs.
@@ -20,15 +20,15 @@ Caia é um assistente virtual com dois modos: "Kaia - Código" e "Kaia - Assiste
    ```
 2. Inicie o agente local (para executar comandos do Windows):
    ```powershell
-   npm run -w @caia/agent-win dev
+   npm run -w @kaia/agent-win dev
    ```
 3. Inicie o backend:
    ```powershell
-   npm run -w @caia/server dev
+   npm run -w @kaia/server dev
    ```
 4. Inicie o frontend:
    ```powershell
-   npm run -w @caia/frontend dev
+   npm run -w @kaia/frontend dev
    ```
 
 Observação: Em desenvolvimento o frontend usa proxy do Vite para `/api` → `http://localhost:3060`.
@@ -42,12 +42,12 @@ Observação: Em desenvolvimento o frontend usa proxy do Vite para `/api` → `h
    ```
 3. Gere o client Prisma e rode as migrações (local ou direto no Railway):
    ```powershell
-   npm run -w @caia/server prisma:gen
-   npm run -w @caia/server prisma:migrate
+   npm run -w @kaia/server prisma:gen
+   npm run -w @kaia/server prisma:migrate
    ```
 
 ## Deploy (Visão Geral)
-- Frontend: Vercel (build com `npm -w @caia/frontend run build`).
+- Frontend: Vercel (build com `npm -w @kaia/frontend run build`).
 - Backend: Railway (start com `node dist/index.js`).
 - Banco: Hostinger (MySQL). Rode `npx prisma migrate deploy` no build ou primeiro start do servidor.
 
