@@ -12,6 +12,7 @@ import VoiceSettingsPanel from './components/VoiceSettings'
 export default function App() {
   const [mode, setMode] = useState<KaiaMode>('assistente')
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
   const { listening, transcript, start, stop, speak: speakBrowser, supported } = useSpeech()
   const { settings: voiceSettings, setSettings: setVoiceSettings, speak } = useTTS()
   const [cmdLines, setCmdLines] = useState<string[]>([])
@@ -103,30 +104,37 @@ export default function App() {
               GPT‑5.2 Preview ativo
             </span>
           )}
-          {serverConfig?.voiceAgentPrompt && (
-            <button
-              onClick={() => navigator.clipboard.writeText(serverConfig.voiceAgentPrompt || '')}
-              className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 border border-white/20"
-              title="Copiar prompt do agente de voz (ElevenLabs)"
-            >
-              Copiar prompt ElevenLabs
-            </button>
-          )}
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-colors"
+            title="Configurações"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
           <ModeSwitch mode={mode} onChange={setMode} />
         </div>
       </header>
 
-      <section className="flex flex-col items-center gap-6 w-full">
-        <div className="w-44 h-44 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center animate-wave">
-          <div className="w-28 h-8 rounded-full bg-gradient-to-r from-sky-300 to-blue-600" />
+      <section className="flex flex-col items-center gap-6 w-full flex-1 justify-center">
+        <div className={`w-44 h-44 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center transition-all duration-300 ${listening ? 'animate-pulse scale-110 border-blue-400' : 'animate-wave'}`}>
+          <div className={`w-28 h-8 rounded-full bg-gradient-to-r from-sky-300 to-blue-600 transition-all duration-300 ${listening ? 'scale-110' : ''}`} />
         </div>
         {!supported && (
           <div className="text-yellow-200">Seu navegador pode não suportar STT/TTS (Web Speech API).</div>
         )}
         <VoiceControls listening={listening} transcript={transcript} onStart={start} onStop={stop} />
+        
         {mode === 'codigo' && <CommandOutput lines={cmdLines} />}
-        {mode === 'assistente' && <RemindersPanel />}
-        <VoiceSettingsPanel settings={voiceSettings} onChange={setVoiceSettings} />
+        
+        {showSettings && (
+          <div className="w-full max-w-3xl space-y-4">
+            {mode === 'assistente' && <RemindersPanel />}
+            <VoiceSettingsPanel settings={voiceSettings} onChange={setVoiceSettings} />
+          </div>
+        )}
       </section>
 
       <footer className="mt-10 text-white/70 text-sm">
