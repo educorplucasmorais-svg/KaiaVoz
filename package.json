@@ -1,0 +1,21 @@
+{
+  "name": "caia-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run -w @caia/frontend dev",
+    "dev:server": "npm run -w @kaia/server dev",
+    "dev:server:old": "npm run -w @caia/server dev",
+    "dev:agent": "npm run -w @caia/agent-win dev",
+    "build": "npm run -w @caia/frontend build && npm run -w @caia/server build",
+    "lint": "npm run -w @caia/frontend lint && npm run -w @caia/server lint",
+    "format": "npm run -w @caia/frontend format && npm run -w @caia/server format"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

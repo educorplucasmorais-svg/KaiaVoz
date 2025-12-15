@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Reminder {
+  id      Int      @id @default(autoincrement())
+  title   String
+  notes   String?
+  whenAt  DateTime
+  created DateTime @default(now())
+}
+
+model ExecutionLog {
+  id        Int      @id @default(autoincrement())
+  command   String
+  output    String
+  exitCode  Int?
+  created   DateTime @default(now())
+}
