@@ -1,27 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { SystemMessage, HumanMessage, AIMessage, BaseMessage as LangChainBaseMessage } from "@langchain/core/messages";
-// import type { SafeTool, AgentState, AgentConfig, BaseMessage } from "./agent-types";
-
-// Tipos inline para evitar erro de import
-interface SafeTool {
-  name: string;
-  description: string;
-  schema: any;
-  execute: (args: any) => Promise<string>;
-}
-
-interface AgentState {
-  history: LangChainBaseMessage[];
-  contextData: Record<string, any>; 
-}
-
-interface AgentConfig {
-  modelName: string;
-  temperature: number;
-  systemPrompt: string;
-  baseUrl?: string;
-  apiKey?: string;
-}
+import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
+import type { SafeTool, AgentState, AgentConfig } from "./agent-types";
 
 export class NeuralCoreAgent {
   private llm: ChatOpenAI;
