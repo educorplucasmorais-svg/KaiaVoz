@@ -81,6 +81,27 @@ Sugestões de configuração:
 - Para instalar mais vozes no Windows: Configurações → Hora e idioma → Fala → Gerenciar vozes → Adicionar vozes (pt-BR).
 - Alternativa offline (avançado): integrar Piper TTS (open-source) no backend. Podemos habilitar depois, mantendo local-first e sem tokens.
 
+## ElevenLabs TTS (opcional)
+Para usar vozes de alta qualidade do ElevenLabs:
+
+1. Obtenha uma chave de API em https://elevenlabs.io/
+2. Configure as variáveis de ambiente no servidor (`apps/server/.env`):
+   ```env
+   ELEVENLABS_API_KEY=sua_chave_aqui
+   # Opcional: ID da voz (padrão: pNInz6obpgDQGcFmaJgB - Adam)
+   ELEVENLABS_VOICE_ID=sua_voz_aqui
+   # Opcional: ID do modelo (padrão: eleven_multilingual_v2)
+   ELEVENLABS_MODEL_ID=eleven_multilingual_v2
+   ```
+3. Reinicie o servidor. O frontend detectará automaticamente o provedor de TTS ativo.
+
+**Endpoints TTS:**
+- `GET /api/tts/provider` - Retorna o provedor de TTS ativo (`elevenlabs`, `edge-tts`, ou `browser`).
+- `GET /api/tts/voices` - Lista vozes disponíveis do provedor ativo.
+- `POST /api/tts` - Sintetiza áudio a partir de texto. Body: `{ text, voice?, rate?, pitch? }`.
+
+**Fallback:** Se a chave ElevenLabs não estiver configurada, o sistema usa Edge TTS (Microsoft) no backend ou Web Speech API no navegador.
+
 ## Segurança
 - O agente local só aceita conexões de `localhost` por padrão.
 - O frontend pede confirmação antes de executar qualquer comando.

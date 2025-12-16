@@ -14,7 +14,7 @@ export default function App() {
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const { listening, transcript, start, stop, speak: speakBrowser, supported, permissionStatus, requestPermission } = useSpeech()
-  const { settings: voiceSettings, setSettings: setVoiceSettings, speak } = useTTS()
+  const { settings: voiceSettings, setSettings: setVoiceSettings, speak, serverProvider } = useTTS()
   const [cmdLines, setCmdLines] = useState<string[]>([])
   const wsRef = useRef<WebSocket | null>(null)
 
@@ -164,7 +164,12 @@ export default function App() {
         {showSettings && (
           <div className="w-full max-w-3xl space-y-4">
             {mode === 'assistente' && <RemindersPanel />}
-            <VoiceSettingsPanel settings={voiceSettings} onChange={setVoiceSettings} />
+            <VoiceSettingsPanel 
+              settings={voiceSettings} 
+              onChange={setVoiceSettings} 
+              serverProvider={serverProvider}
+              onTestVoice={() => speak('Olá, eu sou a Kaia.')}
+            />
           </div>
         )}
       </section>
