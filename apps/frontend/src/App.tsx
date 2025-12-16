@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ModeSwitch from './components/ModeSwitch'
 import VoiceControls from './components/VoiceControls'
 import CommandOutput from './components/CommandOutput'
+import ChatLog, { ChatMessage } from './components/ChatLog'
 import type { KaiaMode, ExecuteCommandEvent, ExecuteCommandRequest, ServerConfig, ApiResponse } from '@kaia/shared'
 import { useSpeech } from './hooks/useSpeech'
 import { useTTS } from './hooks/useTTS'
@@ -13,12 +14,43 @@ export default function App() {
   const [mode, setMode] = useState<KaiaMode>('assistente')
   const [serverConfig, setServerConfig] = useState<ServerConfig | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [chatOpen, setChatOpen] = useState(true)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const { listening, transcript, start, stop, speak: speakBrowser, supported, permissionStatus, requestPermission } = useSpeech()
-  const { settings: voiceSettings, setSettings: setVoiceSettings, speak } = useTTS()
+  const { settings: voiceSettings, setSettings: setVoiceSettings, speak: speakTTS } = useTTS()
   const [cmdLines, setCmdLines] = useState<string[]>([])
   const wsRef = useRef<WebSocket | null>(null)
 
   const canAgent = useMemo(() => mode === 'codigo', [mode])
+
+  // Helper to add messages to chat
+  const addMessage = useCallback((role: 'user' | 'kaia', text: string, status?: ChatMessage['status']) => {
+    const msg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role,
+      text,
+      timestamp: new Date(),
+      status
+    }
+    setMessages(prev => [...prev, msg])
+    return msg.id
+  }, [])
+
+  // Helper to update message status
+  const updateMessageStatus = useCallback((id: string, status: ChatMessage['status']) => {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, status } : m))
+  }, [])
+
+  // Speak and add to chat
+  const speak = useCallback((text: string) => {
+    const msgId = addMessage('kaia', text, 'speaking')
+    speakTTS(text)
+    // Mark as done after estimated speaking time
+    const wordsPerMinute = 150
+    const words = text.split(' ').length
+    const duration = Math.max(1000, (words / wordsPerMinute) * 60 * 1000)
+    setTimeout(() => updateMessageStatus(msgId, 'done'), duration)
+  }, [addMessage, speakTTS, updateMessageStatus])
 
   useEffect(() => {
     // fetch server feature flags / default model
@@ -62,12 +94,36 @@ export default function App() {
     return () => ws.close()
   }, [canAgent])
 
+  // Track last processed transcript to avoid duplicate responses
+  const lastProcessedRef = useRef<string>('')
+
   useEffect(() => {
-    // very simple command parse: "Kaia execute: <comando>"
-    if (!transcript) return
-    const m = /kaia\s+(?:c[oó]digo\s+)?execute?:?\s+(.+)/i.exec(transcript)
-    if (m && canAgent) {
-      const command = m[1].trim()
+    // Don't process empty or already processed transcripts
+    if (!transcript || transcript === lastProcessedRef.current) return
+    
+    const text = transcript.toLowerCase().trim()
+    
+    // Only process when there's a pause (transcript seems complete)
+    // We detect this by checking if the transcript ends with common patterns
+    const seemsComplete = text.length > 3 && (
+      text.endsWith('.') || 
+      text.endsWith('?') || 
+      text.endsWith('!') ||
+      text.includes('kaia') ||
+      text.includes('lembre')
+    )
+    
+    if (!seemsComplete) return
+    
+    lastProcessedRef.current = transcript
+
+    // Add user message to chat
+    addMessage('user', transcript, 'done')
+
+    // === COMANDOS DE EXECUÇÃO (modo código) ===
+    const execMatch = /kaia\s+(?:c[oó]digo\s+)?execute?:?\s+(.+)/i.exec(transcript)
+    if (execMatch && canAgent) {
+      const command = execMatch[1].trim()
       const ok = window.confirm(`Executar comando no Windows?\n${command}`)
       if (!ok) return
       const req: ExecuteCommandRequest = {
@@ -78,9 +134,11 @@ export default function App() {
       }
       wsRef.current?.send(JSON.stringify(req))
       speak('Executando o comando agora.')
+      return
     }
-    // reminders: "lembre-me <texto...>"; server will try to parse date
-    if (/lembre\-?me/i.test(transcript) && mode === 'assistente') {
+
+    // === LEMBRETES (modo assistente) ===
+    if (/lembre\-?me/i.test(text) && mode === 'assistente') {
       const m2 = /lembre\-?me\s+(de\s+)?(.+)/i.exec(transcript)
       const title = (m2?.[2] || transcript).trim()
       const whenPhrase = transcript
@@ -91,11 +149,99 @@ export default function App() {
           speak(r.error || 'Não consegui entender a data do lembrete.')
         }
       }).catch(() => speak('Erro ao criar lembrete.'))
+      return
     }
-  }, [transcript, speak, canAgent, mode])
+
+    // === INTERAÇÕES BÁSICAS ===
+    // Saudações
+    if (/^(oi|olá|eai|e aí|hey|hello|bom dia|boa tarde|boa noite)\s*(kaia)?[!.,]?$/i.test(text) || 
+        /kaia[!.,]?$/i.test(text)) {
+      const greetings = [
+        'Olá! Como posso ajudar você?',
+        'Oi! Estou aqui. O que você precisa?',
+        'Olá! Em que posso ser útil?',
+        'Oi! Estou ouvindo você.'
+      ]
+      speak(greetings[Math.floor(Math.random() * greetings.length)])
+      return
+    }
+
+    // Como você está / tudo bem
+    if (/como (você está|vai|está)|tudo (bem|certo|ok)/i.test(text)) {
+      const responses = [
+        'Estou ótima, obrigada por perguntar! E você?',
+        'Tudo bem por aqui! Pronta para ajudar.',
+        'Estou funcionando perfeitamente! Como posso ajudar?'
+      ]
+      speak(responses[Math.floor(Math.random() * responses.length)])
+      return
+    }
+
+    // Quem é você / qual seu nome
+    if (/quem (é você|és)|qual (é )?seu nome|se apresente/i.test(text)) {
+      speak('Eu sou a Kaia, sua assistente de voz. Posso executar comandos no Windows, criar lembretes e muito mais!')
+      return
+    }
+
+    // O que você faz / pode fazer
+    if (/o que (você )?(faz|pode fazer|consegue|sabe fazer)/i.test(text)) {
+      speak('Posso executar comandos no seu computador, criar lembretes, e conversar com você. Diga "Kaia execute" seguido de um comando, ou "lembre-me de" algo.')
+      return
+    }
+
+    // Que horas são
+    if (/que horas? (são|é)|hora certa|horário/i.test(text)) {
+      const now = new Date()
+      const hours = now.getHours()
+      const minutes = now.getMinutes()
+      speak(`Agora são ${hours} horas e ${minutes} minutos.`)
+      return
+    }
+
+    // Que dia é hoje
+    if (/que dia (é )?hoje|qual (é )?a data/i.test(text)) {
+      const now = new Date()
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+      speak(`Hoje é ${now.toLocaleDateString('pt-BR', options)}.`)
+      return
+    }
+
+    // Obrigado
+    if (/obrigad[oa]|valeu|thanks/i.test(text)) {
+      const responses = [
+        'De nada! Estou aqui se precisar.',
+        'Por nada! Sempre às ordens.',
+        'Disponha! Qualquer coisa é só chamar.'
+      ]
+      speak(responses[Math.floor(Math.random() * responses.length)])
+      return
+    }
+
+    // Ajuda
+    if (/ajuda|help|como (eu )?uso/i.test(text)) {
+      speak('Você pode dizer: "Kaia execute" seguido de um comando do Windows, ou "lembre-me de" algo. Também posso dizer as horas ou a data!')
+      return
+    }
+
+    // Se mencionou "Kaia" mas não foi um comando reconhecido
+    if (/kaia/i.test(text) && text.length > 10) {
+      speak('Desculpe, não entendi. Você pode dizer "Kaia execute" para comandos, ou "lembre-me de" para lembretes.')
+      return
+    }
+
+  }, [transcript, speak, canAgent, mode, addMessage])
 
   return (
     <div className="ocean-waves min-h-screen text-white flex flex-col items-center py-10 px-4">
+      {/* Chat Log Panel */}
+      <ChatLog
+        messages={messages}
+        isListening={listening}
+        currentTranscript={transcript !== lastProcessedRef.current ? transcript : ''}
+        isOpen={chatOpen}
+        onToggle={() => setChatOpen(!chatOpen)}
+      />
+
       <header className="w-full max-w-5xl flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold tracking-wide">Kaia</h1>
         <div className="flex items-center gap-3">

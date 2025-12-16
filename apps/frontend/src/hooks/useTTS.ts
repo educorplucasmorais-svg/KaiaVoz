@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 
 export type VoiceSettings = {
   voice: string
@@ -7,7 +7,7 @@ export type VoiceSettings = {
 }
 
 const DEFAULTS: VoiceSettings = {
-  voice: 'pt-BR-AntonioNeural',
+  voice: 'pt-BR-FranciscaNeural',
   rate: '+0%',
   pitch: '+0Hz'
 }
@@ -21,32 +21,81 @@ export function useTTS() {
       return DEFAULTS
     }
   })
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const voicesLoaded = useRef(false)
+
+  // Load voices - they may not be available immediately
+  useEffect(() => {
+    const synth = window.speechSynthesis
+    
+    const loadVoices = () => {
+      const availableVoices = synth.getVoices()
+      if (availableVoices.length > 0) {
+        setVoices(availableVoices)
+        voicesLoaded.current = true
+        console.log('[Kaia TTS] Vozes carregadas:', availableVoices.length)
+        // Log pt-BR voices for debugging
+        const ptVoices = availableVoices.filter(v => v.lang.startsWith('pt'))
+        console.log('[Kaia TTS] Vozes pt-BR disponíveis:', ptVoices.map(v => v.name))
+      }
+    }
+
+    // Try to load immediately
+    loadVoices()
+
+    // Also listen for voiceschanged event (Chrome loads voices async)
+    synth.addEventListener('voiceschanged', loadVoices)
+
+    return () => {
+      synth.removeEventListener('voiceschanged', loadVoices)
+    }
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('kaia.voice', JSON.stringify(settings))
   }, [settings])
 
-  const speak = useCallback(async (text: string) => {
+  const speak = useCallback((text: string) => {
     const synth = window.speechSynthesis
+    
+    // Cancel any ongoing speech
+    synth.cancel()
+
     const utter = new SpeechSynthesisUtterance(text)
     utter.lang = 'pt-BR'
-    // apply rate/pitch
-    const rateMatch = /^([+-]?\d+)%$/.exec(settings.rate.replace('%',''))
-    // speechSynthesis rate is 0.1 to 10, default 1; we'll map +/-% roughly
-    const baseRate = 1
-    const ratePct = parseFloat(settings.rate.replace('%','')) || 0
-    utter.rate = Math.max(0.5, Math.min(2, baseRate * (1 + ratePct/100)))
-    const pitchHz = parseFloat(settings.pitch.replace('Hz',''))
-    if (!isNaN(pitchHz)) {
-      // voice pitch range 0-2; map +/-Hz loosely
-      const basePitch = 1
-      utter.pitch = Math.max(0, Math.min(2, basePitch + (pitchHz/10)))
+    
+    // Apply rate (convert percentage to 0.5-2 range)
+    const ratePct = parseFloat(settings.rate.replace(/[+%]/g, '')) || 0
+    utter.rate = Math.max(0.5, Math.min(2, 1 + ratePct / 100))
+    
+    // Apply pitch (convert Hz offset to 0-2 range)
+    const pitchHz = parseFloat(settings.pitch.replace(/[+Hz]/g, '')) || 0
+    utter.pitch = Math.max(0, Math.min(2, 1 + pitchHz / 50))
+
+    // Find voice - prefer exact match, then any pt-BR voice
+    const availableVoices = synth.getVoices()
+    const selectedVoice = availableVoices.find(v => v.name === settings.voice) 
+      || availableVoices.find(v => v.lang === 'pt-BR')
+      || availableVoices.find(v => v.lang.startsWith('pt'))
+    
+    if (selectedVoice) {
+      utter.voice = selectedVoice
+      console.log('[Kaia TTS] Usando voz:', selectedVoice.name)
+    } else {
+      console.warn('[Kaia TTS] Nenhuma voz pt-BR encontrada, usando padrão do sistema')
     }
-    const voices = synth.getVoices()
-    const v = voices.find(v => v.name === settings.voice || v.lang === 'pt-BR')
-    if (v) utter.voice = v
+
+    // Error handling
+    utter.onerror = (e) => {
+      console.error('[Kaia TTS] Erro ao falar:', e.error)
+    }
+
+    utter.onstart = () => {
+      console.log('[Kaia TTS] Iniciando fala:', text.substring(0, 50) + '...')
+    }
+
     synth.speak(utter)
   }, [settings])
 
-  return { settings, setSettings, speak }
+  return { settings, setSettings, speak, voices }
 }

@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import { remindersRouter } from './routes/reminders'
 import { configRouter } from './routes/config'
+import { elevenLabsRouter } from './routes/elevenlabs'
 
 dotenv.config()
 
@@ -17,6 +18,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/reminders', remindersRouter)
 app.use('/api/config', configRouter)
+app.use('/api/tts', elevenLabsRouter)
 
 const port = Number(process.env.PORT || 3060)
 app.listen(port, () => {
