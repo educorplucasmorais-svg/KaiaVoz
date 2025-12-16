@@ -20,7 +20,23 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   
   // Usar NeuralCore ao invés de useSpeech direto
-  const { listening, transcript, supported, permissionStatus, requestPermission } = useSpeech()
+  // Configure VAD with optimized settings for voice assistant
+  const { 
+    listening, 
+    transcript, 
+    interimTranscript,
+    confidence,
+    lastError,
+    supported, 
+    permissionStatus, 
+    requestPermission,
+    clearError
+  } = useSpeech({
+    silenceTimeout: 1500, // 1.5s silence triggers end of speech
+    maxDuration: 30000,   // 30s max recording
+    autoRestart: true,    // Auto-restart after speech ends
+    maxRetries: 3         // Retry up to 3 times on recoverable errors
+  })
   const { isListening: ncListening, response: ncResponse, processCommand } = useNeuralCore()
   const { settings: voiceSettings, setSettings: setVoiceSettings, speak: speakTTS, serverProvider } = useTTS()
   
@@ -214,9 +230,13 @@ export default function App() {
             
             <VoiceControls 
               listening={listening} 
-              transcript={transcript} 
+              transcript={transcript}
+              interimTranscript={interimTranscript}
+              confidence={confidence}
+              lastError={lastError}
               permissionStatus={permissionStatus}
               onRequestPermission={requestPermission}
+              onClearError={clearError}
             />
             
             <CommandOutput lines={cmdLines} />

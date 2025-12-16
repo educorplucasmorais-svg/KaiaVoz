@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
+import { SystemMessage, HumanMessage, AIMessage, BaseMessage as LangChainBaseMessage } from "@langchain/core/messages";
 // import type { SafeTool, AgentState, AgentConfig, BaseMessage } from "./agent-types";
 
 // Tipos inline para evitar erro de import
@@ -10,14 +10,8 @@ interface SafeTool {
   execute: (args: any) => Promise<string>;
 }
 
-interface BaseMessage {
-  content: string;
-  role: 'user' | 'assistant' | 'system';
-  timestamp?: Date;
-}
-
 interface AgentState {
-  history: BaseMessage[];
+  history: LangChainBaseMessage[];
   contextData: Record<string, any>; 
 }
 
