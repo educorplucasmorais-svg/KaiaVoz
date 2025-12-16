@@ -224,11 +224,11 @@ export default function App() {
               onRequestPermission={requestPermission}
             />
             
-            {mode === 'codigo' && <CommandOutput lines={cmdLines} />}
+            <CommandOutput lines={cmdLines} />
             
             {showSettings && (
               <div className="w-full max-w-3xl space-y-4">
-                {mode === 'assistente' && <RemindersPanel />}
+                <RemindersPanel />
                 <VoiceSettingsPanel 
                   settings={voiceSettings} 
                   onChange={setVoiceSettings} 
