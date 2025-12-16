@@ -30,13 +30,26 @@ export function useTTS() {
   const [serverProvider, setServerProvider] = useState<TTSProvider | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Helper to validate TTS provider response
+  const isValidProviderResponse = (json: unknown): json is { success: boolean; data?: { provider: string } } => {
+    return (
+      typeof json === 'object' &&
+      json !== null &&
+      'success' in json &&
+      typeof (json as { success: unknown }).success === 'boolean'
+    )
+  }
+
   // Fetch server TTS provider info on mount
   useEffect(() => {
     fetch(`${base}/api/tts/provider`)
       .then(r => r.json())
-      .then((json: { success: boolean; data?: { provider: string } }) => {
-        if (json.success && json.data?.provider) {
-          setServerProvider(json.data.provider as TTSProvider)
+      .then((json: unknown) => {
+        if (isValidProviderResponse(json) && json.success && json.data?.provider) {
+          const provider = json.data.provider
+          if (provider === 'elevenlabs' || provider === 'edge-tts' || provider === 'browser') {
+            setServerProvider(provider)
+          }
         }
       })
       .catch(() => {
@@ -51,6 +64,11 @@ export function useTTS() {
 
   // Speak using server-side TTS (ElevenLabs or Edge TTS)
   const speakWithServer = useCallback(async (text: string): Promise<boolean> => {
+    const cleanup = (audioUrl: string) => {
+      URL.revokeObjectURL(audioUrl)
+      setLoading(false)
+    }
+
     try {
       setLoading(true)
       const response = await fetch(`${base}/api/tts`, {
@@ -66,6 +84,7 @@ export function useTTS() {
 
       if (!response.ok) {
         console.error('Server TTS error:', response.status)
+        setLoading(false)
         return false
       }
 
@@ -75,17 +94,15 @@ export function useTTS() {
       
       return new Promise((resolve) => {
         audio.onended = () => {
-          URL.revokeObjectURL(audioUrl)
-          setLoading(false)
+          cleanup(audioUrl)
           resolve(true)
         }
         audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl)
-          setLoading(false)
+          cleanup(audioUrl)
           resolve(false)
         }
         audio.play().catch(() => {
-          setLoading(false)
+          cleanup(audioUrl)
           resolve(false)
         })
       })

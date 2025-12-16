@@ -4,13 +4,18 @@ import { getVoices, tts, Voice } from 'edge-tts'
 export const ttsRouter = Router()
 
 // ElevenLabs configuration
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || ''
+const ELEVENLABS_API_KEY_RAW = process.env.ELEVENLABS_API_KEY || ''
+// Validate API key format (non-empty, no whitespace-only)
+const ELEVENLABS_API_KEY = ELEVENLABS_API_KEY_RAW.trim().length > 0 ? ELEVENLABS_API_KEY_RAW.trim() : ''
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB' // Default: Adam
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2'
 
+// Helper to check if ElevenLabs is configured
+const isElevenLabsConfigured = (): boolean => ELEVENLABS_API_KEY.length > 0
+
 // Get TTS provider info
 ttsRouter.get('/provider', (_req, res) => {
-  const provider = ELEVENLABS_API_KEY ? 'elevenlabs' : 'edge-tts'
+  const provider = isElevenLabsConfigured() ? 'elevenlabs' : 'edge-tts'
   return res.json({
     success: true,
     data: {
@@ -21,11 +26,32 @@ ttsRouter.get('/provider', (_req, res) => {
   })
 })
 
+// ElevenLabs voice response type
+interface ElevenLabsVoice {
+  voice_id: string
+  name: string
+  labels?: Record<string, string>
+}
+
+interface ElevenLabsVoicesResponse {
+  voices: ElevenLabsVoice[]
+}
+
+// Helper to validate ElevenLabs voices response
+function isValidElevenLabsVoicesResponse(data: unknown): data is ElevenLabsVoicesResponse {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'voices' in data &&
+    Array.isArray((data as ElevenLabsVoicesResponse).voices)
+  )
+}
+
 // List available voices (subset filter by locale if provided)
 ttsRouter.get('/voices', async (req, res) => {
   try {
     // If ElevenLabs is configured, return ElevenLabs voices
-    if (ELEVENLABS_API_KEY) {
+    if (isElevenLabsConfigured()) {
       const response = await fetch('https://api.elevenlabs.io/v1/voices', {
         headers: {
           'xi-api-key': ELEVENLABS_API_KEY,
@@ -34,7 +60,10 @@ ttsRouter.get('/voices', async (req, res) => {
       if (!response.ok) {
         throw new Error(`ElevenLabs API error: ${response.status}`)
       }
-      const data = await response.json() as { voices: Array<{ voice_id: string; name: string; labels?: Record<string, string> }> }
+      const data: unknown = await response.json()
+      if (!isValidElevenLabsVoicesResponse(data)) {
+        throw new Error('Invalid ElevenLabs API response format')
+      }
       const voices = data.voices.map((v) => ({
         voiceId: v.voice_id,
         name: v.name,
@@ -91,7 +120,7 @@ ttsRouter.post('/', async (req, res) => {
     }
 
     // Use ElevenLabs if API key is configured
-    if (ELEVENLABS_API_KEY) {
+    if (isElevenLabsConfigured()) {
       const voiceId = typeof voice === 'string' && voice.length > 0 ? voice : ELEVENLABS_VOICE_ID
       const audioBuffer = await synthesizeWithElevenLabs(text, voiceId)
 
