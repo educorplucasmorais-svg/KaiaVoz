@@ -17,17 +17,11 @@ export function useSpeech() {
     }
 
     try {
-      // First, check if any audio input devices exist
-      const devices = await navigator.mediaDevices.enumerateDevices()
-      const audioInputDevices = devices.filter(device => device.kind === 'audioinput')
-      
-      if (audioInputDevices.length === 0) {
-        console.warn('No audio input devices found')
-        return 'unavailable'
-      }
-
-      // Try to get microphone access
+      // Try to get microphone access directly - this will prompt for permission
+      // Note: enumerateDevices() may return empty list before permission is granted (browser privacy)
+      console.log('Requesting microphone access...')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.log('Microphone access granted!')
       stream.getTracks().forEach(track => track.stop())
       return 'granted'
     } catch (err) {
@@ -40,19 +34,22 @@ export function useSpeech() {
       } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorName === 'OverconstrainedError') {
         return 'unavailable'
       }
-      // For other errors, treat as permission issue but allow retry
+      // For other errors, treat as denied but allow retry
       return 'denied'
     }
   }, [])
 
-  // Request microphone permission on mount
+  // On mount, set to 'prompt' state (don't auto-check, wait for user to click)
+  // This is better UX because browsers may block auto-permission requests
   useEffect(() => {
-    const checkPermission = async () => {
-      const status = await requestMicPermission()
-      setPermissionStatus(status)
+    // Check if Speech Recognition is supported
+    if (!SpeechRecognition) {
+      setPermissionStatus('unavailable')
+      return
     }
-    checkPermission()
-  }, [requestMicPermission])
+    // Start in 'prompt' state - user needs to click to enable microphone
+    setPermissionStatus('prompt')
+  }, [SpeechRecognition])
 
   useEffect(() => {
     if (!SpeechRecognition) return
