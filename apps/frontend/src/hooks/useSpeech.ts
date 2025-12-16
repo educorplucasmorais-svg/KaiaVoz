@@ -10,17 +10,37 @@ export function useSpeech() {
 
   // Helper function to request microphone permission
   const requestMicPermission = useCallback(async (): Promise<'granted' | 'denied' | 'unavailable'> => {
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.warn('MediaDevices API not available')
+      return 'unavailable'
+    }
+
     try {
+      // First, check if any audio input devices exist
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const audioInputDevices = devices.filter(device => device.kind === 'audioinput')
+      
+      if (audioInputDevices.length === 0) {
+        console.warn('No audio input devices found')
+        return 'unavailable'
+      }
+
+      // Try to get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       stream.getTracks().forEach(track => track.stop())
       return 'granted'
     } catch (err) {
-      const errorName = (err as any).name
+      const error = err as Error
+      console.warn('Microphone permission error:', error.name, error.message)
+      
+      const errorName = error.name
       if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         return 'denied'
-      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorName === 'OverconstrainedError') {
         return 'unavailable'
       }
+      // For other errors, treat as permission issue but allow retry
       return 'denied'
     }
   }, [])
