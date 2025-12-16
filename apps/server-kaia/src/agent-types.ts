@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { BaseMessage } from "@langchain/core/messages";
 
 // Define a estrutura de uma Ferramenta Segura (Padrão Facade)
 export interface SafeTool {
@@ -7,6 +6,13 @@ export interface SafeTool {
   description: string;
   schema: z.ZodObject<any>;
   execute: (args: any) => Promise<string>;
+}
+
+// Mensagem genérica para histórico
+export interface BaseMessage {
+  content: string;
+  role: 'user' | 'assistant' | 'system';
+  timestamp?: Date;
 }
 
 // O estado da memória de curto prazo do agente

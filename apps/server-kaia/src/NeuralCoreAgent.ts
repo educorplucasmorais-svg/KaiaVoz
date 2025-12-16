@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { SystemMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
-import { SafeTool, AgentState, AgentConfig } from "./agent-types"; // Importando do arquivo 1
+import type { SafeTool, AgentState, AgentConfig, BaseMessage } from "./agent-types";
 
 export class NeuralCoreAgent {
   private llm: ChatOpenAI;
