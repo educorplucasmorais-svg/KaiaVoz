@@ -47,6 +47,8 @@ export function useSpeech(vadConfig: Partial<VADConfig> = {}) {
   const recRef = useRef<any | null>(null)
   const hasAutoStarted = useRef(false)
   const retryCountRef = useRef(0)
+  const restartCountRef = useRef(0) // Separate counter for auto-restarts
+  const restartBackoffMs = useRef(100) // Backoff delay for auto-restarts
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const maxDurationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSpeechTimeRef = useRef<number>(Date.now())
@@ -165,8 +167,6 @@ export function useSpeech(vadConfig: Partial<VADConfig> = {}) {
     rec.lang = 'pt-BR'
     rec.continuous = true
     rec.interimResults = true
-    // Increase max alternatives for better accuracy
-    rec.maxAlternatives = 3
 
     rec.onresult = (e: any) => {
       lastSpeechTimeRef.current = Date.now()
@@ -201,13 +201,14 @@ export function useSpeech(vadConfig: Partial<VADConfig> = {}) {
       const currentText = (finalText + interimText).trim()
       setTranscript(currentText)
 
-      // Reset silence timeout when speech is detected
+      // Reset silence timeout when any speech is detected (interim or final)
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current)
       }
       
       // Set up silence detection (VAD) - triggers when user stops speaking
-      if (config.silenceTimeout > 0 && finalText) {
+      // Trigger on any speech activity (currentText), not just final results
+      if (config.silenceTimeout > 0 && currentText) {
         silenceTimeoutRef.current = setTimeout(() => {
           console.log('[VAD] Silence detected, finalizing speech')
           // Emit the final transcript when silence is detected
@@ -246,8 +247,15 @@ export function useSpeech(vadConfig: Partial<VADConfig> = {}) {
       clearAllTimeouts()
       
       // Auto-restart if configured and not manually stopped
-      if (config.autoRestart && listening && retryCountRef.current < config.maxRetries) {
-        console.log('[Speech] Auto-restarting recognition')
+      // Use separate restart counter with exponential backoff to prevent infinite loops
+      const maxRestarts = 10 // Max auto-restarts before giving up
+      if (config.autoRestart && listening && restartCountRef.current < maxRestarts) {
+        restartCountRef.current++
+        
+        // Calculate backoff delay: 100ms, 200ms, 400ms, 800ms, etc. (max 5000ms)
+        const backoffDelay = Math.min(restartBackoffMs.current * Math.pow(1.5, restartCountRef.current - 1), 5000)
+        
+        console.log(`[Speech] Auto-restarting recognition (attempt ${restartCountRef.current}/${maxRestarts}, delay: ${Math.round(backoffDelay)}ms)`)
         setTimeout(() => {
           if (recRef.current && listening) {
             try {
@@ -256,9 +264,13 @@ export function useSpeech(vadConfig: Partial<VADConfig> = {}) {
               // Recognition might already be started
             }
           }
-        }, 100)
+        }, backoffDelay)
       } else {
+        if (restartCountRef.current >= 10) {
+          console.warn('[Speech] Max auto-restarts reached, stopping')
+        }
         setListening(false)
+        restartCountRef.current = 0 // Reset for next session
       }
     }
 
@@ -266,6 +278,8 @@ export function useSpeech(vadConfig: Partial<VADConfig> = {}) {
       console.log('[Speech] User started speaking')
       lastSpeechTimeRef.current = Date.now()
       retryCountRef.current = 0 // Reset retry count when speech is detected
+      restartCountRef.current = 0 // Reset restart count when speech is detected
+      restartBackoffMs.current = 100 // Reset backoff
       setLastError(null)
     }
 
