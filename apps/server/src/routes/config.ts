@@ -1,5 +1,17 @@
 import { Router } from 'express'
-import type { ServerConfig } from '@kaia/shared'
+
+// Types from @kaia/shared (inlined to avoid rootDir issues)
+type ModelId = 'gpt-5.2' | 'local-none'
+
+interface FeatureFlags {
+  gpt52PreviewAllClients: boolean
+}
+
+interface ServerConfig {
+  features: FeatureFlags
+  defaultModel: ModelId
+  voiceAgentPrompt?: string
+}
 
 export const configRouter = Router()
 

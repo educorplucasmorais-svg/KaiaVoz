@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
-import type { VoiceSettings } from '../hooks/useTTS'
+import type { VoiceSettings, TTSProvider } from '../hooks/useTTS'
 
-export default function VoiceSettingsPanel({ settings, onChange }: { settings: VoiceSettings; onChange: (v: VoiceSettings) => void }) {
+interface VoiceSettingsPanelProps {
+  settings: VoiceSettings
+  onChange: (v: VoiceSettings) => void
+  serverProvider?: TTSProvider | null
+  onTestVoice?: () => void
+}
+
+export default function VoiceSettingsPanel({ settings, onChange, serverProvider, onTestVoice }: VoiceSettingsPanelProps) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
-  const [isSpeaking, setIsSpeaking] = useState(false)
 
   useEffect(() => {
     const synth = window.speechSynthesis
@@ -19,34 +25,45 @@ export default function VoiceSettingsPanel({ settings, onChange }: { settings: V
     return () => { synth.removeEventListener('voiceschanged', load) }
   }, [])
 
-  const testVoice = () => {
-    const synth = window.speechSynthesis
-    synth.cancel() // Cancel any ongoing speech
-    
-    setIsSpeaking(true)
-    const utter = new SpeechSynthesisUtterance('Olá! Eu sou a Kaia, sua assistente de voz.')
-    utter.lang = 'pt-BR'
-    
-    // Apply settings
-    const ratePct = parseFloat(settings.rate.replace(/[+%]/g, '')) || 0
-    utter.rate = Math.max(0.5, Math.min(2, 1 + ratePct / 100))
-    
-    const pitchHz = parseFloat(settings.pitch.replace(/[+Hz]/g, '')) || 0
-    utter.pitch = Math.max(0, Math.min(2, 1 + pitchHz / 50))
-    
-    const selectedVoice = synth.getVoices().find(x => x.name === settings.voice) 
-      || synth.getVoices().find(x => x.lang === 'pt-BR')
-    if (selectedVoice) utter.voice = selectedVoice
-    
-    utter.onend = () => setIsSpeaking(false)
-    utter.onerror = () => setIsSpeaking(false)
-    
-    synth.speak(utter)
+  const getProviderLabel = (provider: TTSProvider | null | undefined) => {
+    switch (provider) {
+      case 'elevenlabs':
+        return 'ElevenLabs'
+      case 'edge-tts':
+        return 'Edge TTS'
+      case 'browser':
+      default:
+        return 'Navegador (Web Speech API)'
+    }
+  }
+
+  const handleTestVoice = () => {
+    if (onTestVoice) {
+      onTestVoice()
+    } else {
+      // Fallback to browser TTS
+      const utter = new SpeechSynthesisUtterance('Olá, eu sou a Kaia.')
+      utter.lang = 'pt-BR'
+      const v = window.speechSynthesis.getVoices().find(x => x.name === settings.voice)
+      if (v) utter.voice = v
+      window.speechSynthesis.speak(utter)
+    }
   }
 
   return (
     <div className="w-full max-w-3xl bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4">
-      <h2 className="text-lg font-semibold mb-3">🔊 Voz da Kaia</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">Voz da Kaia</h2>
+        {serverProvider && (
+          <span className={`text-xs px-3 py-1 rounded-full border ${
+            serverProvider === 'elevenlabs' 
+              ? 'bg-purple-500/20 text-purple-200 border-purple-400/40' 
+              : 'bg-blue-500/20 text-blue-200 border-blue-400/40'
+          }`}>
+            {getProviderLabel(serverProvider)}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
         <div className="flex flex-col gap-1">
           <label className="text-sm text-white/80">Voz</label>
@@ -87,13 +104,10 @@ export default function VoiceSettingsPanel({ settings, onChange }: { settings: V
       </div>
       <div className="mt-3 flex gap-2 items-center">
         <button
-          onClick={testVoice}
-          disabled={isSpeaking}
-          className={`px-4 py-2 rounded text-white transition-colors ${
-            isSpeaking ? 'bg-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+          onClick={handleTestVoice}
+          className="px-4 py-2 rounded bg-blue-600 text-white"
         >
-          {isSpeaking ? '🔊 Falando...' : '▶️ Testar Voz'}
+          ▶️ Testar Voz
         </button>
         {voices.length === 0 && (
           <span className="text-yellow-300 text-sm">Carregando vozes...</span>

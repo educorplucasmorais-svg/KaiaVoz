@@ -10,29 +10,52 @@ export function useSpeech() {
 
   // Helper function to request microphone permission
   const requestMicPermission = useCallback(async (): Promise<'granted' | 'denied' | 'unavailable'> => {
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.warn('MediaDevices API not available')
+      return 'unavailable'
+    }
+
     try {
+      // Try to get microphone access directly - this will prompt for permission
+      // Note: enumerateDevices() may return empty list before permission is granted (browser privacy)
+      console.log('Requesting microphone access...')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.log('Microphone access granted!')
       stream.getTracks().forEach(track => track.stop())
       return 'granted'
     } catch (err) {
-      const errorName = (err as any).name
+      const error = err as Error
+      console.warn('Microphone permission error:', error.name, error.message)
+      
+      const errorName = error.name
       if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         return 'denied'
-      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorName === 'OverconstrainedError') {
         return 'unavailable'
       }
+      // For other errors, treat as denied but allow retry
       return 'denied'
     }
   }, [])
 
-  // Request microphone permission on mount
+  // On mount, automatically request microphone permission
   useEffect(() => {
-    const checkPermission = async () => {
+    // Check if Speech Recognition is supported
+    if (!SpeechRecognition) {
+      setPermissionStatus('unavailable')
+      return
+    }
+    
+    // Automatically request microphone permission on page load
+    const autoRequestPermission = async () => {
+      setPermissionStatus('checking')
       const status = await requestMicPermission()
       setPermissionStatus(status)
     }
-    checkPermission()
-  }, [requestMicPermission])
+    
+    autoRequestPermission()
+  }, [SpeechRecognition, requestMicPermission])
 
   useEffect(() => {
     if (!SpeechRecognition) return
@@ -42,11 +65,23 @@ export function useSpeech() {
     rec.interimResults = true
 
     rec.onresult = (e: any) => {
-      let text = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        text += e.results[i][0].transcript
+      let interimText = ''
+      let finalText = ''
+      
+      for (let i = 0; i < e.results.length; i++) {
+        const result = e.results[i]
+        const text = result[0].transcript
+        
+        if (result.isFinal) {
+          finalText += text + ' '
+        } else {
+          interimText += text
+        }
       }
-      setTranscript(text.trim())
+      
+      // Prioritize final results, fall back to interim
+      const currentText = (finalText + interimText).trim()
+      setTranscript(currentText)
     }
 
     rec.onend = () => {

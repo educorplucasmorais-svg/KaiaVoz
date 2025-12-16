@@ -17,5 +17,10 @@
   },
   "engines": {
     "node": ">=18.17.0"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.6",
+    "@langchain/openai": "^1.2.0",
+    "zod": "^4.2.1"
   }
 }

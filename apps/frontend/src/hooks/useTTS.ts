@@ -1,101 +1,160 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState } from "react";
+
+export type TTSProvider = "browser" | "edge-tts" | "elevenlabs";
 
 export type VoiceSettings = {
-  voice: string
-  rate: string // e.g., '+0%'
-  pitch: string // e.g., '+0Hz'
-}
+  voice: string;
+  rate: string; // e.g., '+0%'
+  pitch: string; // e.g., '+0Hz'
+  provider?: TTSProvider;
+};
 
 const DEFAULTS: VoiceSettings = {
-  voice: 'pt-BR-FranciscaNeural',
-  rate: '+0%',
-  pitch: '+0Hz'
-}
+  voice: "pt-BR-FranciscaNeural",
+  rate: "+0%",
+  pitch: "+0Hz",
+  provider: "browser",
+};
+
+const base = import.meta.env.VITE_API_URL || "";
 
 export function useTTS() {
   const [settings, setSettings] = useState<VoiceSettings>(() => {
     try {
-      const saved = localStorage.getItem('kaia.voice')
-      return saved ? JSON.parse(saved) as VoiceSettings : DEFAULTS
+      const saved = localStorage.getItem("kaia.voice");
+      return saved ? ({ ...DEFAULTS, ...JSON.parse(saved) } as VoiceSettings) : DEFAULTS;
     } catch {
-      return DEFAULTS
+      return DEFAULTS;
     }
-  })
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
-  const voicesLoaded = useRef(false)
+  });
+  const [serverProvider, setServerProvider] = useState<TTSProvider | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Load voices - they may not be available immediately
+  const isValidProviderResponse = (json: unknown): json is { success: boolean; data?: { provider: string } } => {
+    return typeof json === "object" && json !== null && "success" in json && typeof (json as { success: unknown }).success === "boolean";
+  };
+
   useEffect(() => {
-    const synth = window.speechSynthesis
-    
-    const loadVoices = () => {
-      const availableVoices = synth.getVoices()
-      if (availableVoices.length > 0) {
-        setVoices(availableVoices)
-        voicesLoaded.current = true
-        console.log('[Kaia TTS] Vozes carregadas:', availableVoices.length)
-        // Log pt-BR voices for debugging
-        const ptVoices = availableVoices.filter(v => v.lang.startsWith('pt'))
-        console.log('[Kaia TTS] Vozes pt-BR disponíveis:', ptVoices.map(v => v.name))
+    fetch(`${base}/api/tts/provider`)
+      .then((r) => r.json())
+      .then((json: unknown) => {
+        if (isValidProviderResponse(json) && json.success && json.data?.provider) {
+          const provider = json.data.provider;
+          if (provider === "elevenlabs" || provider === "edge-tts" || provider === "browser") {
+            setServerProvider(provider);
+          }
+        }
+      })
+      .catch(() => {
+        setServerProvider(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("kaia.voice", JSON.stringify(settings));
+  }, [settings]);
+
+  const speakWithServer = useCallback(
+    async (text: string): Promise<boolean> => {
+      const cleanup = (audioUrl: string) => {
+        URL.revokeObjectURL(audioUrl);
+        setLoading(false);
+      };
+
+      try {
+        setLoading(true);
+        const response = await fetch(`${base}/api/tts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voice: settings.voice,
+            rate: settings.rate,
+            pitch: settings.pitch,
+          }),
+        });
+
+        if (!response.ok) {
+          setLoading(false);
+          return false;
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        return new Promise((resolve) => {
+          audio.onended = () => {
+            cleanup(audioUrl);
+            resolve(true);
+          };
+          audio.onerror = () => {
+            cleanup(audioUrl);
+            resolve(false);
+          };
+          audio.play().catch(() => {
+            cleanup(audioUrl);
+            resolve(false);
+          });
+        });
+      } catch {
+        setLoading(false);
+        return false;
       }
-    }
+    },
+    [settings]
+  );
 
-    // Try to load immediately
-    loadVoices()
+  const speakWithBrowser = useCallback(
+    (text: string) => {
+      const synth = window.speechSynthesis;
+      synth.cancel();
 
-    // Also listen for voiceschanged event (Chrome loads voices async)
-    synth.addEventListener('voiceschanged', loadVoices)
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "pt-BR";
 
-    return () => {
-      synth.removeEventListener('voiceschanged', loadVoices)
-    }
-  }, [])
+      const ratePct = parseFloat(settings.rate.replace(/[+%]/g, "")) || 0;
+      utter.rate = Math.max(0.5, Math.min(2, 1 + ratePct / 100));
 
-  useEffect(() => {
-    localStorage.setItem('kaia.voice', JSON.stringify(settings))
-  }, [settings])
+      const pitchHz = parseFloat(settings.pitch.replace(/[+Hz]/g, ""));
+      if (!Number.isNaN(pitchHz)) {
+        const basePitch = 1;
+        utter.pitch = Math.max(0, Math.min(2, basePitch + pitchHz / 10));
+      }
 
-  const speak = useCallback((text: string) => {
-    const synth = window.speechSynthesis
-    
-    // Cancel any ongoing speech
-    synth.cancel()
+      const availableVoices = synth.getVoices();
+      const selectedVoice =
+        availableVoices.find((v) => v.name === settings.voice) ||
+        availableVoices.find((v) => v.lang === "pt-BR") ||
+        availableVoices.find((v) => v.lang?.startsWith("pt"));
+      if (selectedVoice) utter.voice = selectedVoice;
 
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = 'pt-BR'
-    
-    // Apply rate (convert percentage to 0.5-2 range)
-    const ratePct = parseFloat(settings.rate.replace(/[+%]/g, '')) || 0
-    utter.rate = Math.max(0.5, Math.min(2, 1 + ratePct / 100))
-    
-    // Apply pitch (convert Hz offset to 0-2 range)
-    const pitchHz = parseFloat(settings.pitch.replace(/[+Hz]/g, '')) || 0
-    utter.pitch = Math.max(0, Math.min(2, 1 + pitchHz / 50))
+      utter.onerror = (e) => {
+        console.error("[Kaia TTS] Erro ao falar:", e.error);
+      };
 
-    // Find voice - prefer exact match, then any pt-BR voice
-    const availableVoices = synth.getVoices()
-    const selectedVoice = availableVoices.find(v => v.name === settings.voice) 
-      || availableVoices.find(v => v.lang === 'pt-BR')
-      || availableVoices.find(v => v.lang.startsWith('pt'))
-    
-    if (selectedVoice) {
-      utter.voice = selectedVoice
-      console.log('[Kaia TTS] Usando voz:', selectedVoice.name)
-    } else {
-      console.warn('[Kaia TTS] Nenhuma voz pt-BR encontrada, usando padrão do sistema')
-    }
+      synth.speak(utter);
+    },
+    [settings]
+  );
 
-    // Error handling
-    utter.onerror = (e) => {
-      console.error('[Kaia TTS] Erro ao falar:', e.error)
-    }
+  const speak = useCallback(
+    async (text: string) => {
+      if (serverProvider && serverProvider !== "browser") {
+        const success = await speakWithServer(text);
+        if (success) return;
+      }
+      speakWithBrowser(text);
+    },
+    [serverProvider, speakWithServer, speakWithBrowser]
+  );
 
-    utter.onstart = () => {
-      console.log('[Kaia TTS] Iniciando fala:', text.substring(0, 50) + '...')
-    }
-
-    synth.speak(utter)
-  }, [settings])
-
-  return { settings, setSettings, speak, voices }
+  return {
+    settings,
+    setSettings,
+    speak,
+    serverProvider,
+    loading,
+    isElevenLabs: serverProvider === "elevenlabs",
+  };
 }

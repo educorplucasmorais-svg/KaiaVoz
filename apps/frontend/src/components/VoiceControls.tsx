@@ -21,8 +21,14 @@ export default function VoiceControls({ listening, transcript, permissionStatus,
     return (
       <div className="flex flex-col items-center gap-3">
         <div className="text-red-300 text-center">
-          Nenhum microfone encontrado. Conecte um microfone e recarregue a página.
+          Nenhum microfone encontrado. Verifique se seu microfone está conectado e funcionando.
         </div>
+        <button
+          onClick={onRequestPermission}
+          className="px-6 py-3 rounded-full text-white font-semibold shadow-lg bg-blue-600 hover:bg-blue-700 transition-colors"
+        >
+          Verificar novamente
+        </button>
       </div>
     )
   }
