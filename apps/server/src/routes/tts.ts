@@ -1,7 +1,41 @@
 import { Router } from 'express'
-import { getVoices, tts, Voice } from 'edge-tts'
 
 export const ttsRouter = Router()
+
+// Edge TTS types (ESM module, must be dynamically imported)
+interface EdgeTTSVoice {
+  Name: string
+  ShortName: string
+  FriendlyName: string
+  Gender: 'Male' | 'Female'
+  Locale: string
+  VoiceTag: {
+    ContentCategories: string[]
+    VoicePersonalities: string[]
+  }
+}
+
+// Edge TTS module cache
+let edgeTTSModule: { getVoices: () => Promise<EdgeTTSVoice[]>; tts: (text: string, options?: object) => Promise<Buffer> } | null = null
+let edgeTTSLoadAttempted = false
+
+// Dynamic import helper for edge-tts (ESM module)
+// Returns null if import fails (ESM/CJS compatibility issue)
+async function getEdgeTTS() {
+  if (edgeTTSLoadAttempted) {
+    return edgeTTSModule
+  }
+  edgeTTSLoadAttempted = true
+  try {
+    // Use Function constructor to avoid TypeScript transpiling the import
+    const importFn = new Function('modulePath', 'return import(modulePath)')
+    edgeTTSModule = await importFn('edge-tts')
+    return edgeTTSModule
+  } catch (err) {
+    console.warn('edge-tts not available (ESM/CJS compatibility):', err instanceof Error ? err.message : err)
+    return null
+  }
+}
 
 // ElevenLabs configuration
 const ELEVENLABS_API_KEY_RAW = process.env.ELEVENLABS_API_KEY || ''
@@ -14,14 +48,26 @@ const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || 'eleven_multiling
 const isElevenLabsConfigured = (): boolean => ELEVENLABS_API_KEY.length > 0
 
 // Get TTS provider info
-ttsRouter.get('/provider', (_req, res) => {
-  const provider = isElevenLabsConfigured() ? 'elevenlabs' : 'edge-tts'
+ttsRouter.get('/provider', async (_req, res) => {
+  if (isElevenLabsConfigured()) {
+    return res.json({
+      success: true,
+      data: {
+        provider: 'elevenlabs',
+        voiceId: ELEVENLABS_VOICE_ID,
+        modelId: ELEVENLABS_MODEL_ID,
+      }
+    })
+  }
+  
+  // Check if edge-tts is available
+  const edgeTTS = await getEdgeTTS()
+  const provider = edgeTTS ? 'edge-tts' : 'browser'
+  
   return res.json({
     success: true,
     data: {
       provider,
-      voiceId: provider === 'elevenlabs' ? ELEVENLABS_VOICE_ID : undefined,
-      modelId: provider === 'elevenlabs' ? ELEVENLABS_MODEL_ID : undefined,
     }
   })
 })
@@ -72,11 +118,17 @@ ttsRouter.get('/voices', async (req, res) => {
       return res.json({ success: true, data: { provider: 'elevenlabs', voices } })
     }
 
-    // Fallback to Edge TTS
-    const voices = await getVoices()
-    const locale = (req.query.locale as string) || 'pt-BR'
-    const filtered = voices.filter((v: Voice) => !locale || (v.Locale || '').toLowerCase() === locale.toLowerCase())
-    return res.json({ success: true, data: { provider: 'edge-tts', voices: filtered } })
+    // Try Edge TTS
+    const edgeTTS = await getEdgeTTS()
+    if (edgeTTS) {
+      const voices = await edgeTTS.getVoices()
+      const locale = (req.query.locale as string) || 'pt-BR'
+      const filtered = voices.filter((v: EdgeTTSVoice) => !locale || (v.Locale || '').toLowerCase() === locale.toLowerCase())
+      return res.json({ success: true, data: { provider: 'edge-tts', voices: filtered } })
+    }
+    
+    // Fallback: no server-side TTS available, client should use browser
+    return res.json({ success: true, data: { provider: 'browser', voices: [] } })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'voices error'
     return res.status(500).json({ success: false, error: message })
@@ -130,16 +182,27 @@ ttsRouter.post('/', async (req, res) => {
       return
     }
 
-    // Fallback to Edge TTS
-    const voiceName = typeof voice === 'string' && voice.length > 0 ? voice : process.env.TTS_VOICE || 'pt-BR-AntonioNeural'
-    const rateStr = typeof rate === 'string' ? rate : '+0%'
-    const pitchStr = typeof pitch === 'string' ? pitch : '+0Hz'
+    // Try Edge TTS
+    const edgeTTS = await getEdgeTTS()
+    if (edgeTTS) {
+      const voiceName = typeof voice === 'string' && voice.length > 0 ? voice : process.env.TTS_VOICE || 'pt-BR-AntonioNeural'
+      const rateStr = typeof rate === 'string' ? rate : '+0%'
+      const pitchStr = typeof pitch === 'string' ? pitch : '+0Hz'
 
-    const audioBuffer = await tts(text, { voice: voiceName, rate: rateStr, pitch: pitchStr })
+      const audioBuffer = await edgeTTS.tts(text, { voice: voiceName, rate: rateStr, pitch: pitchStr })
 
-    res.setHeader('Content-Type', 'audio/mpeg')
-    res.setHeader('Cache-Control', 'no-store')
-    res.send(audioBuffer)
+      res.setHeader('Content-Type', 'audio/mpeg')
+      res.setHeader('Cache-Control', 'no-store')
+      res.send(audioBuffer)
+      return
+    }
+
+    // No server-side TTS available
+    return res.status(501).json({ 
+      success: false, 
+      error: 'No server-side TTS available. Use browser TTS instead.',
+      fallback: 'browser'
+    })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'tts error'
     return res.status(500).json({ success: false, error: message })
