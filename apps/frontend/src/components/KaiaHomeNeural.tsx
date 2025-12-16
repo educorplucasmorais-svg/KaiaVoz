@@ -29,12 +29,8 @@ export function KaiaHomeNeural({
             <span className="text-2xl font-bold tracking-tight">Kaia</span>
           </div>
 
-          {/* Centro: preview + modos */}
+          {/* Centro: modos */}
           <div className="flex items-center gap-6">
-            <span className="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-2 text-xs font-medium text-emerald-300 shadow-[0_0_18px_rgba(16,185,129,0.6)]">
-              ✓ GPT‑5.2 Preview ativo
-            </span>
-
             <div className="flex items-center rounded-full border border-cyan-400/40 bg-slate-900/60 px-1 py-1 backdrop-blur-xl">
               <button
                 onClick={() => onToggleMode?.('assistente')}

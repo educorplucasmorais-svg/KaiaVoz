@@ -164,11 +164,6 @@ export default function App() {
           <header className="w-full max-w-5xl flex items-center justify-between mb-8">
             <h1 className="text-2xl font-bold tracking-wide">Kaia</h1>
             <div className="flex items-center gap-3">
-              {serverConfig?.features.gpt52PreviewAllClients && (
-                <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-200 border border-green-400/40">
-                  GPT‑5.2 Preview ativo
-                </span>
-              )}
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center transition-colors"

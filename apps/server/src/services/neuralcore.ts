@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { getAbbacusService } from './abbacus'
 
 interface ThoughtSpeakResponse {
   thought: string
@@ -27,9 +28,12 @@ interface SecurityContext {
 export class NeuralCoreAgent extends EventEmitter {
   private securityContext: SecurityContext
   private ragContext: Map<string, any>
+  private useAbbacusLLM: boolean
 
-  constructor() {
+  constructor(useAbbacusLLM: boolean = true) {
     super()
+
+    this.useAbbacusLLM = useAbbacusLLM && !!process.env.ABBACUS_API_KEY
 
     this.securityContext = {
       allowedOperations: [
@@ -65,6 +69,49 @@ export class NeuralCoreAgent extends EventEmitter {
       }
     }
 
+    // Tentar usar Abbacus LLM se disponível
+    if (this.useAbbacusLLM) {
+      const abbacus = getAbbacusService()
+      if (abbacus) {
+        try {
+          console.log('[NeuralCore] Processando com Abbacus LLM...')
+          const llmResponse = await abbacus.generateVoiceResponse(command.text)
+          
+          // Ainda validar intent para detectar toolCalls
+          const intent = await abbacus.extractIntent(command.text)
+          
+          // Se for file operation ou reminder, adicionar toolCall
+          let toolCall: ToolCall | undefined
+          if (intent.type === 'file_operation') {
+            toolCall = {
+              name: 'open_file',
+              params: intent.params || {},
+              requiresConfirmation: false
+            }
+          } else if (intent.type === 'reminder') {
+            toolCall = {
+              name: 'create_reminder',
+              params: intent.params || {},
+              requiresConfirmation: false
+            }
+          }
+          
+          const latency = Date.now() - startTime
+          console.log(`[NeuralCore] Abbacus respondeu em ${latency}ms`)
+          
+          return {
+            ...llmResponse,
+            toolCall
+          }
+        } catch (error) {
+          console.error('[NeuralCore] Erro com Abbacus, usando fallback local:', error)
+          // Continuar com processamento local se LLM falhar
+        }
+      }
+    }
+
+    // Fallback: processamento local com pattern matching
+    console.log('[NeuralCore] Usando processamento local (pattern matching)')
     const intent = this.analyzeIntent(command.text)
 
     if (intent.requiresContext) {
