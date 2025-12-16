@@ -7,6 +7,49 @@ Kaia é um assistente virtual com dois modos: "Kaia - Código" e "Kaia - Assiste
 - `apps/agent-win`: Agente local Windows (Node) que executa comandos em tempo real via WebSocket.
 - `packages/shared`: Tipos e protocolo compartilhados.
 
+## 🚀 NeuralCore - IA Inteligente
+
+**Status**: ✅ Em produção  
+**Guia Completo**: [NEURALCORE_GUIDE.md](./NEURALCORE_GUIDE.md)
+
+O Kaia agora usa o **NeuralCore**, um sistema de IA inteligente com:
+- 🧠 Análise automática de 6 tipos de intenção
+- ⚡ Latência < 300ms (TTFT)
+- 🔒 Validação de segurança integrada
+- 🎤 STT/TTS local (Web Speech API)
+- 🔊 Síntese premium com ElevenLabs
+- 💾 Cache inteligente para performance
+
+### Quick Start NeuralCore
+
+```bash
+# 1. Instale dependências
+npm install
+
+# 2. Configure variáveis de ambiente (apps/server/.env)
+PORT=3060
+ELEVENLABS_API_KEY=sk_xxxxx
+ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+
+# 3. Inicie o servidor
+npm run dev:server
+
+# 4. Em outro terminal, inicie o frontend
+npm run dev
+
+# 5. Acesse http://localhost:5173 e fale com Kaia
+```
+
+### Testes de Voz
+
+```
+"Olá Kaia"           → Saudação inteligente
+"Que horas são?"     → Resposta com hora atual
+"Lembre-me de..."    → Criar lembrete
+"Abra bloco de notas" → Executar comando
+"Aumentar volume"    → Controle de sistema
+```
+
 ## Requisitos
 - Node 18+
 - NPM 9+
