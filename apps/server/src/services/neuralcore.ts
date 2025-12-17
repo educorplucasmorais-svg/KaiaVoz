@@ -164,6 +164,16 @@ export class NeuralCoreAgent extends EventEmitter {
       }
     }
 
+    // Check for Kaia greeting first - this is the primary wake pattern
+    if (/\b(oi|olá|hey|e aí)\s*(kaia|caia|kaya|caya)?\b/i.test(text) ||
+        /^(bom dia|boa tarde|boa noite)(\s+kaia)?/i.test(text)) {
+      return {
+        type: 'greeting',
+        requiresContext: false
+      }
+    }
+
+    // Check for questions
     if (lowerText.startsWith('o que') || lowerText.startsWith('qual') || lowerText.startsWith('como')) {
       return {
         type: 'question',
@@ -176,13 +186,6 @@ export class NeuralCoreAgent extends EventEmitter {
       return {
         type: 'system_control',
         action: this.extractSystemAction(text),
-        requiresContext: false
-      }
-    }
-
-    if (/^(oi|olá|hey|e aí|bom dia|boa tarde|boa noite)\b/i.test(text)) {
-      return {
-        type: 'greeting',
         requiresContext: false
       }
     }
@@ -295,14 +298,15 @@ export class NeuralCoreAgent extends EventEmitter {
     const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
 
     const responses = [
-      `${greeting}! Como posso ajudar?`,
-      `${greeting}! No que posso ser útil?`,
-      `Oi! ${greeting}! Pronta para ajudar.`,
-      `Olá! ${greeting}!`
+      `${greeting}! Eu sou a Kaia, como posso ajudar?`,
+      `${greeting}! Sou a Kaia, sua assistente de voz. No que posso ser útil?`,
+      `Oi! ${greeting}! Sou a Kaia, pronta para ajudar.`,
+      `Olá! ${greeting}! Aqui é a Kaia, o que você precisa?`,
+      `${greeting}! Kaia aqui! Como posso te ajudar hoje?`
     ]
 
     return {
-      thought: 'Saudação detectada',
+      thought: 'Saudação detectada - usuário chamou a Kaia',
       speak: responses[Math.floor(Math.random() * responses.length)]
     }
   }
