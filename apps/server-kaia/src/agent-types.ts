@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { BaseMessage as LangChainBaseMessage } from "@langchain/core/messages";
 
 // Define a estrutura de uma Ferramenta Segura (Padrão Facade)
 export interface SafeTool {
@@ -8,16 +9,12 @@ export interface SafeTool {
   execute: (args: any) => Promise<string>;
 }
 
-// Mensagem genérica para histórico
-export interface BaseMessage {
-  content: string;
-  role: 'user' | 'assistant' | 'system';
-  timestamp?: Date;
-}
+// Re-export LangChain BaseMessage for type compatibility
+export type BaseMessage = LangChainBaseMessage;
 
 // O estado da memória de curto prazo do agente
 export interface AgentState {
-  history: BaseMessage[];
+  history: LangChainBaseMessage[];
   // Armazena dados contextuais voláteis (ex: chunks do RAG)
   contextData: Record<string, any>; 
 }
